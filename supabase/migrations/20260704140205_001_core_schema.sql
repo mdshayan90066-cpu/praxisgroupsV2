@@ -93,6 +93,21 @@ CREATE TABLE IF NOT EXISTS companies (
   updated_at timestamptz DEFAULT now()
 );
 
+-- Safety net: if `companies` already existed before this migration (from an earlier
+-- version of the schema), CREATE TABLE IF NOT EXISTS above is a no-op and none of the
+-- columns declared in it actually get added. These ALTER statements guarantee every
+-- column this file depends on exists, whether the table was just created or already existed.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS slug text UNIQUE;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS banner_url text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS website text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS hr_contact_name text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS hr_contact_email text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS hr_contact_phone text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS linkedin_url text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_approved_companies" ON companies;
 CREATE POLICY "public_read_approved_companies" ON companies FOR SELECT TO anon, authenticated USING (status = 'approved');
