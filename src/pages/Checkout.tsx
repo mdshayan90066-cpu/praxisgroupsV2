@@ -241,3 +241,56 @@ export default function Checkout() {
                     <span className="text-gold-500">₹{total}</span>
                   </div>
                 </div>
+
+                {error && (
+                  <div className="flex items-start gap-2 bg-red-600/10 border border-red-600/30 rounded px-3 py-2 mb-4 text-sm text-red-400">
+                    <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <button
+                  onClick={handlePay}
+                  className="btn-primary w-full py-3 text-sm font-semibold flex items-center justify-center gap-2"
+                >
+                  <Lock size={14} />
+                  Pay ₹{total} Securely
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-2">
+            <div className="card p-6 sticky top-6">
+              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <ShieldCheck size={18} className="text-forest-400" />
+                Secure Payment
+              </h3>
+              <ul className="space-y-3 text-sm text-gray-400">
+                <li className="flex items-start gap-2">
+                  <CheckCircle size={14} className="text-forest-400 mt-0.5 flex-shrink-0" />
+                  <span>Payments processed securely via Razorpay</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle size={14} className="text-forest-400 mt-0.5 flex-shrink-0" />
+                  <span>Your card and bank details are never stored on our servers</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle size={14} className="text-forest-400 mt-0.5 flex-shrink-0" />
+                  <span>Instant confirmation email after successful payment</span>
+                </li>
+              </ul>
+              {student && (
+                <div className="mt-6 pt-6 border-t border-dark-300 text-sm">
+                  <p className="text-gray-500 text-xs mb-1">Registering as</p>
+                  <p className="text-white font-medium">{student.full_name}</p>
+                  <p className="text-gray-400">{student.email}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
