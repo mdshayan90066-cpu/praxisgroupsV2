@@ -39,10 +39,11 @@ Complete relational schema for the Praxis Group EdTech SaaS platform.
 */
 
 -- Workshop Categories
+-- NOTE: Keep `slug` nullable here so this migration is safe to run on older installs.
 CREATE TABLE IF NOT EXISTS workshop_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  slug text UNIQUE NOT NULL,
+  slug text,
   color text DEFAULT '#C9A84C',
   created_at timestamptz DEFAULT now()
 );
@@ -80,7 +81,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_workshop_categories_slug ON workshop_categ
 CREATE TABLE IF NOT EXISTS internship_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  slug text UNIQUE NOT NULL,
+  slug text,
   color text DEFAULT '#2D6A4F',
   created_at timestamptz DEFAULT now()
 );
@@ -95,11 +96,27 @@ CREATE POLICY "auth_update_internship_categories" ON internship_categories FOR U
 DROP POLICY IF EXISTS "auth_delete_internship_categories" ON internship_categories;
 CREATE POLICY "auth_delete_internship_categories" ON internship_categories FOR DELETE TO authenticated USING (true);
 
+-- Ensure slug column exists and populate for legacy rows
+ALTER TABLE internship_categories ADD COLUMN IF NOT EXISTS slug text;
+UPDATE internship_categories
+SET slug = regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')
+WHERE slug IS NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM internship_categories WHERE slug IS NULL) THEN
+    ALTER TABLE internship_categories ALTER COLUMN slug SET NOT NULL;
+  ELSE
+    RAISE NOTICE 'Some internship_categories rows have NULL slug; leaving column nullable.';
+  END IF;
+END$$;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_internship_categories_slug ON internship_categories(slug);
+
 -- Companies
+-- Keep slug nullable and create a unique index later to make the migration idempotent for legacy tables.
 CREATE TABLE IF NOT EXISTS companies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  slug text UNIQUE,
+  slug text,
   logo_url text,
   banner_url text,
   website text,
@@ -119,7 +136,7 @@ CREATE TABLE IF NOT EXISTS companies (
 -- version of the schema), CREATE TABLE IF NOT EXISTS above is a no-op and none of the
 -- columns declared in it actually get added. These ALTER statements guarantee every
 -- column this file depends on exists, whether the table was just created or already existed.
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS slug text UNIQUE;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS slug text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS banner_url text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS website text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry text;
@@ -174,7 +191,7 @@ CREATE TABLE IF NOT EXISTS workshops (
   thumbnail_url text,
   banner_url text,
   name text NOT NULL,
-  slug text UNIQUE NOT NULL,
+  slug text,
   category_id uuid REFERENCES workshop_categories(id) ON DELETE SET NULL,
   workshop_type text NOT NULL DEFAULT 'online' CHECK (workshop_type IN ('online', 'offline', 'hybrid')),
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'closed', 'archived')),
@@ -222,7 +239,7 @@ CREATE TABLE IF NOT EXISTS internships (
   company_logo_url text,
   banner_url text,
   name text NOT NULL,
-  slug text UNIQUE NOT NULL,
+  slug text,
   category_id uuid REFERENCES internship_categories(id) ON DELETE SET NULL,
   domain text,
   company_id uuid REFERENCES companies(id) ON DELETE SET NULL,
@@ -487,6 +504,12 @@ CREATE INDEX IF NOT EXISTS idx_internship_applications_student ON internship_app
 CREATE INDEX IF NOT EXISTS idx_certificates_number ON certificates(certificate_number);
 CREATE INDEX IF NOT EXISTS idx_students_user ON students(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+
+-- Ensure slug uniqueness across entities by creating unique indexes if slugs exist.
+-- Creating UNIQUE INDEX via IF NOT EXISTS is safer than inline UNIQUE constraints when altering existing tables.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_slug ON companies(slug);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workshops_slug ON workshops(slug);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_internships_slug ON internships(slug);
 
 -- Seed default categories
 INSERT INTO workshop_categories (name, slug, color) VALUES
