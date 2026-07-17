@@ -98,6 +98,9 @@ export default function Checkout() {
     setError('');
 
     try {
+      const basePrice = workshop.price && workshop.price > 0 ? workshop.price : 499;
+      const cleanAmountInPaise = Math.round(basePrice * 1.18 * 100);
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${supabaseUrl}/functions/v1/razorpay-create-order`, {
         method: 'POST',
@@ -109,6 +112,9 @@ export default function Checkout() {
           workshopId,
           studentId: student.id,
           applicationId,
+          amount: cleanAmountInPaise,
+          currency: 'INR',
+          description: `Registration for ${workshop.name}`,
         }),
       });
 
@@ -211,86 +217,27 @@ export default function Checkout() {
               </div>
             ) : step === 'processing' ? (
               <div className="card py-16 text-center animate-fade-in">
-                <div className="w-8 h-8 border-2 border-gold-600/30 border-t-gold-600 rounded-full animate-spin mx-auto mb-6" />
-                <h2 className="text-white font-semibold text-lg mb-2">Preparing Secure Checkout...</h2>
-                <p className="text-gray-500 text-sm">You will be redirected to Razorpay's secure payment page.</p>
+                <div className="w-8 h-8 border-2 border-gold-600/30 border-t-gold-600 rounded-full animate-spin mx-auto mb-4" />
+                <h2 className="text-lg font-medium text-white mb-1">Preparing Payment Gateway...</h2>
+                <p className="text-gray-400 text-sm">Please do not close or refresh this page.</p>
               </div>
             ) : (
-              <div className="card space-y-6">
-                <div>
-                  <h1 className="text-xl font-bold text-white mb-1">Secure Payment</h1>
-                  <p className="text-gray-500 text-sm">You will be redirected to Razorpay's secure checkout to complete your payment.</p>
-                </div>
-
-                {error && (
-                  <div className="px-4 py-3 bg-red-600/10 border border-red-600/30 text-red-400 text-sm flex items-center gap-2">
-                    <AlertCircle size={16} /> {error}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-4 border border-dark-300 bg-dark-600">
-                    <ShieldCheck size={20} className="text-forest-400" />
+              <div className="card p-6">
+                <h2 className="text-xl font-bold text-white mb-6">Review & Pay</h2>
+                <div className="space-y-4 mb-8">
+                  <div className="flex justify-between pb-4 border-b border-dark-300">
                     <div>
-                      <div className="text-white text-sm font-medium">Razorpay Secure Checkout</div>
-                      <div className="text-gray-500 text-xs">100+ payment methods including cards, UPI, net banking, wallets</div>
+                      <h3 className="text-white font-medium">{workshop.name}</h3>
+                      <p className="text-gray-400 text-xs mt-1">Live Online Workshop</p>
                     </div>
+                    <span className="text-white font-medium">₹{amount}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>GST (18%)</span>
+                    <span>₹{gst}</span>
+                  </div>
+                  <div className="flex justify-between pt-4 border-t border-dark-300 font-bold text-lg text-white">
+                    <span>Total Amount</span>
+                    <span className="text-gold-500">₹{total}</span>
                   </div>
                 </div>
-
-                <button onClick={handlePay} className="btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2">
-                  <Lock size={15} /> Pay ₹{total.toLocaleString()} Securely
-                </button>
-                <p className="text-gray-500 text-xs text-center">You will be redirected to Razorpay's secure payment page.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-2">
-            <div className="card sticky top-8">
-              <h2 className="text-white font-semibold mb-4">Order Summary</h2>
-              <div className="flex gap-3 pb-4 border-b border-dark-300">
-                <div className="w-16 h-16 bg-dark-600 overflow-hidden shrink-0">
-                  {workshop.thumbnail_url ? (
-                    <img src={workshop.thumbnail_url} alt={workshop.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-dark-600 to-dark-700" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium line-clamp-2">{workshop.name}</div>
-                  <div className="text-gray-500 text-xs mt-1">{workshop.workshop_type} · {workshop.duration ?? 'Self-paced'}</div>
-                </div>
-              </div>
-
-              <div className="space-y-2.5 py-4 border-b border-dark-300">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Base Price</span>
-                  <span className="text-white">₹{amount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">GST (18%)</span>
-                  <span className="text-white">₹{gst.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center pt-4">
-                <span className="text-white font-semibold">Total Payable</span>
-                <span className="text-2xl font-bold text-gold-500">₹{total.toLocaleString()}</span>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-dark-300 space-y-2">
-                <div className="flex items-center gap-2 text-gray-500 text-xs">
-                  <ShieldCheck size={13} className="text-forest-400" /> 256-bit SSL encrypted checkout
-                </div>
-                <div className="flex items-center gap-2 text-gray-500 text-xs">
-                  <CheckCircle size={13} className="text-forest-400" /> Payment verified via webhook
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
