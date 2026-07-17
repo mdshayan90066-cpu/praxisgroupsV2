@@ -192,7 +192,21 @@ export default function Checkout() {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                   ) : step === 'failed' ? (
+          <div className="lg:col-span-3">
+            {step === 'success' ? (
+              <div className="card text-center py-12 animate-fade-in">
+                <div className="w-20 h-20 bg-forest-600/20 border border-forest-600/30 flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle size={40} className="text-forest-400" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Payment Initiated!</h1>
+                <p className="text-gray-400 text-sm mb-1">Your payment is being verified.</p>
+                <p className="text-gold-500 font-semibold text-lg mb-6">{workshop.name}</p>
+                <p className="text-gray-500 text-xs mb-8 max-w-sm mx-auto">
+                  You will receive a confirmation once the payment is verified. You can check your dashboard for the updated status.
+                </p>
+                <button onClick={() => navigate('/student/dashboard')} className="btn-primary px-8 py-3 text-sm">Go to Dashboard</button>
+              </div>
+            ) : step === 'failed' ? (
               <div className="card text-center py-12 animate-fade-in">
                 <div className="w-20 h-20 bg-red-600/20 border border-red-600/30 flex items-center justify-center mx-auto mb-6">
                   <AlertCircle size={40} className="text-red-400" />
@@ -227,14 +241,3 @@ export default function Checkout() {
                     <span className="text-gold-500">₹{total}</span>
                   </div>
                 </div>
-                <button onClick={handlePay} className="btn-primary w-full py-3.5 flex items-center justify-center gap-2 font-semibold tracking-wide">
-                  <ShieldCheck size={18} /> Pay Securely via Razorpay
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
