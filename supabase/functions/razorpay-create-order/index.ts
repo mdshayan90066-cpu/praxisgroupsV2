@@ -65,7 +65,7 @@ serve(async (req: Request) => {
 
     // Prepare Razorpay API request
     const razorpayRequestBody = {
-      amount: body.amount,
+      amount: Math.round(body.amount),
       currency: body.currency || 'INR',
       receipt: body.receipt || `receipt_${Date.now()}`,
       description: body.description || 'Payment',
@@ -99,14 +99,15 @@ serve(async (req: Request) => {
 
     const order: RazorpayOrder = await response.json();
 
-    // Return order details to frontend
+    // FIXED: Variables renamed here to perfectly match what your frontend destructures
     return new Response(
       JSON.stringify({
         success: true,
-        order_id: order.id,
+        orderId: order.id,
         amount: order.amount,
         currency: order.currency,
-        created_at: order.created_at,
+        keyId: keyId,
+        workshopName: body.description || 'Workshop Payment',
       }),
       {
         status: 200,
