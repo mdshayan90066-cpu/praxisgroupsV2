@@ -54,6 +54,25 @@ CREATE POLICY "auth_update_workshop_categories" ON workshop_categories FOR UPDAT
 DROP POLICY IF EXISTS "auth_delete_workshop_categories" ON workshop_categories;
 CREATE POLICY "auth_delete_workshop_categories" ON workshop_categories FOR DELETE TO authenticated USING (true);
 
+-- Ensure legacy installs that already had the table but lacked a slug column are handled.
+-- This adds the column if missing, populates slugs from name, and creates a unique index.
+ALTER TABLE workshop_categories ADD COLUMN IF NOT EXISTS slug text;
+-- Populate missing slugs from `name` (simple slugify). Only updates rows where slug is NULL.
+UPDATE workshop_categories
+SET slug = regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')
+WHERE slug IS NULL;
+-- Only set NOT NULL if every row has a slug (avoid failing migrations if there are NULLs).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM workshop_categories WHERE slug IS NULL) THEN
+    ALTER TABLE workshop_categories ALTER COLUMN slug SET NOT NULL;
+  ELSE
+    RAISE NOTICE 'Some workshop_categories rows have NULL slug; leaving column nullable.';
+  END IF;
+END$$;
+-- Ensure a unique index on slug (used by ON CONFLICT in seeds)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workshop_categories_slug ON workshop_categories(slug);
+
 -- Internship Categories
 CREATE TABLE IF NOT EXISTS internship_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
