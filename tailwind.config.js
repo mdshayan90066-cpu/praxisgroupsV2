@@ -1,0 +1,72 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        dark: {
+          900: '#0A0A0A',
+          800: '#0D0D0D',
+          700: '#111111',
+          600: '#161616',
+          500: '#1A1A1A',
+          400: '#222222',
+          300: '#2A2A2A',
+          200: '#333333',
+          100: '#444444',
+        },
+        gold: {
+          900: '#7A5C1A',
+          800: '#9A7020',
+          700: '#B8882A',
+          600: '#C9A84C',
+          500: '#D4B460',
+          400: '#DEC078',
+          300: '#E8CC90',
+          200: '#F0D8A8',
+          100: '#F8EDD0',
+        },
+        forest: {
+          900: '#0D2218',
+          800: '#152E22',
+          700: '#1E3D2D',
+          600: '#2D6A4F',
+          500: '#3A8563',
+          400: '#4EA07A',
+          300: '#65B890',
+          200: '#8CCFAB',
+          100: '#B8E4CB',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        none: '0px',
+        sm: '2px',
+        DEFAULT: '2px',
+        md: '2px',
+        lg: '2px',
+        xl: '2px',
+        '2xl': '2px',
+        '3xl': '2px',
+        full: '9999px',
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.3s ease-in-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'slide-down': 'slideDown 0.3s ease-out',
+        'shimmer': 'shimmer 1.5s infinite',
+      },
+      keyframes: {
+        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        slideDown: { '0%': { opacity: '0', transform: 'translateY(-10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+      },
+    },
+  },
+  plugins: [],
+};

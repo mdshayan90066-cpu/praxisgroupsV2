@@ -1,0 +1,9 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /student/
+Disallow: /company/
+Disallow: /api/
+
+Sitemap: https://praxisgroup.online/sitemap.xml
