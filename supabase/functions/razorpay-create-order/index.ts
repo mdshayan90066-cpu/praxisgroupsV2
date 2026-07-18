@@ -59,7 +59,7 @@ serve(async (req) => {
     }
 
     const basePrice = workshop.price && workshop.price > 0 ? workshop.price : 499;
-    const amountInPaise = Math.round(basePrice * 1.18 * 100);
+    const amountInPaise = Math.round((basePrice + 3) * 100);
 
     const auth = btoa(`${keyId}:${keySecret}`);
 
