@@ -4,42 +4,19 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 /*
 # Praxis Group - Core Schema
 
-## Overview
-Complete relational schema for the Praxis Group EdTech SaaS platform.
-
-## New Tables
-
-### Categories
-- `workshop_categories` - Categories for workshops (id, name, slug, color)
-- `internship_categories` - Categories for internships (id, name, slug, color)
-
-### Core Entities
-- `companies` - Partner company profiles (name, logo, description, industry, contact info, status)
-- `workshops` - Workshop listings with full metadata (thumbnail, banner, pricing, dates, curriculum, etc.)
-- `internships` - Internship listings linked to companies
-- `students` - Student profiles linked to auth.users
-- `company_users` - Company portal users linked to auth.users
-
-### Operations
-- `workshop_applications` - Student workshop registrations/applications
-- `internship_applications` - Student internship applications
-- `certificates` - Issued certificates with QR/PDF support
-- `payments` - Payment records (Razorpay integration ready)
-- `attendance` - Workshop attendance records
-- `assignments` - Student assignments
-- `notifications` - User notifications
-- `certificate_templates` - Admin-managed certificate templates
-- `company_partnership_requests` - Company partnership/collaboration requests
-
-## Security
-- RLS enabled on all tables
-- Admin operations use service role
-- Students/companies scoped to their own data via auth.uid()
-- Public data (active workshops, internships) readable by anon
+## IMPORTANT — why this file has so many ALTER TABLE ADD COLUMN IF NOT EXISTS lines
+`CREATE TABLE IF NOT EXISTS` is a no-op when the table already exists in the database
+(which several tables here did, from an earlier/older schema). That means none of the
+columns declared inside those CREATE TABLE blocks actually get added on a database
+that already has the table. Every table below therefore has an explicit block of
+`ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` statements immediately after its
+CREATE TABLE, so this migration is safe and idempotent whether a table is being
+created fresh or already existed with a different (older) set of columns.
 */
 
+-- ============================================================
 -- Workshop Categories
--- NOTE: Keep `slug` nullable here so this migration is safe to run on older installs.
+-- ============================================================
 CREATE TABLE IF NOT EXISTS workshop_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -47,6 +24,11 @@ CREATE TABLE IF NOT EXISTS workshop_categories (
   color text DEFAULT '#C9A84C',
   created_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE workshop_categories ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE workshop_categories ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE workshop_categories ADD COLUMN IF NOT EXISTS color text DEFAULT '#C9A84C';
+ALTER TABLE workshop_categories ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 
 ALTER TABLE workshop_categories ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_workshop_categories" ON workshop_categories;
@@ -58,14 +40,9 @@ CREATE POLICY "auth_update_workshop_categories" ON workshop_categories FOR UPDAT
 DROP POLICY IF EXISTS "auth_delete_workshop_categories" ON workshop_categories;
 CREATE POLICY "auth_delete_workshop_categories" ON workshop_categories FOR DELETE TO authenticated USING (true);
 
--- Ensure legacy installs that already had the table but lacked a slug column are handled.
--- This adds the column if missing, populates slugs from name, and creates a unique index.
-ALTER TABLE workshop_categories ADD COLUMN IF NOT EXISTS slug text;
--- Populate missing slugs from `name` (simple slugify). Only updates rows where slug is NULL.
 UPDATE workshop_categories
 SET slug = regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')
 WHERE slug IS NULL;
--- Only set NOT NULL if every row has a slug (avoid failing migrations if there are NULLs).
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM workshop_categories WHERE slug IS NULL) THEN
@@ -74,10 +51,11 @@ BEGIN
     RAISE NOTICE 'Some workshop_categories rows have NULL slug; leaving column nullable.';
   END IF;
 END$$;
--- Ensure a unique index on slug (used by ON CONFLICT in seeds)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workshop_categories_slug ON workshop_categories(slug);
 
+-- ============================================================
 -- Internship Categories
+-- ============================================================
 CREATE TABLE IF NOT EXISTS internship_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -85,6 +63,11 @@ CREATE TABLE IF NOT EXISTS internship_categories (
   color text DEFAULT '#2D6A4F',
   created_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE internship_categories ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE internship_categories ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE internship_categories ADD COLUMN IF NOT EXISTS color text DEFAULT '#2D6A4F';
+ALTER TABLE internship_categories ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 
 ALTER TABLE internship_categories ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_internship_categories" ON internship_categories;
@@ -96,8 +79,6 @@ CREATE POLICY "auth_update_internship_categories" ON internship_categories FOR U
 DROP POLICY IF EXISTS "auth_delete_internship_categories" ON internship_categories;
 CREATE POLICY "auth_delete_internship_categories" ON internship_categories FOR DELETE TO authenticated USING (true);
 
--- Ensure slug column exists and populate for legacy rows
-ALTER TABLE internship_categories ADD COLUMN IF NOT EXISTS slug text;
 UPDATE internship_categories
 SET slug = regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')
 WHERE slug IS NULL;
@@ -111,8 +92,9 @@ BEGIN
 END$$;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_internship_categories_slug ON internship_categories(slug);
 
+-- ============================================================
 -- Companies
--- Keep slug nullable and create a unique index later to make the migration idempotent for legacy tables.
+-- ============================================================
 CREATE TABLE IF NOT EXISTS companies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -132,11 +114,9 @@ CREATE TABLE IF NOT EXISTS companies (
   updated_at timestamptz DEFAULT now()
 );
 
--- Safety net: if `companies` already existed before this migration (from an earlier
--- version of the schema), CREATE TABLE IF NOT EXISTS above is a no-op and none of the
--- columns declared in it actually get added. These ALTER statements guarantee every
--- column this file depends on exists, whether the table was just created or already existed.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS name text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS banner_url text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS website text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry text;
@@ -145,7 +125,10 @@ ALTER TABLE companies ADD COLUMN IF NOT EXISTS hr_contact_name text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS hr_contact_email text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS hr_contact_phone text;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS linkedin_url text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_approved_companies" ON companies;
@@ -157,7 +140,9 @@ CREATE POLICY "auth_update_own_company" ON companies FOR UPDATE TO authenticated
 DROP POLICY IF EXISTS "auth_delete_companies" ON companies;
 CREATE POLICY "auth_delete_companies" ON companies FOR DELETE TO authenticated USING (auth.uid() = user_id OR user_id IS NULL);
 
+-- ============================================================
 -- Students
+-- ============================================================
 CREATE TABLE IF NOT EXISTS students (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -175,6 +160,20 @@ CREATE TABLE IF NOT EXISTS students (
   updated_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE students ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS full_name text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar_url text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS college text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS degree text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS graduation_year integer;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS skills text[];
+ALTER TABLE students ADD COLUMN IF NOT EXISTS resume_url text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS status text DEFAULT 'active';
+ALTER TABLE students ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "students_read_own" ON students;
 CREATE POLICY "students_read_own" ON students FOR SELECT TO authenticated USING (auth.uid() = user_id);
@@ -185,7 +184,9 @@ CREATE POLICY "students_update_own" ON students FOR UPDATE TO authenticated USIN
 DROP POLICY IF EXISTS "students_delete_own" ON students;
 CREATE POLICY "students_delete_own" ON students FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+-- ============================================================
 -- Workshops
+-- ============================================================
 CREATE TABLE IF NOT EXISTS workshops (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   thumbnail_url text,
@@ -222,6 +223,39 @@ CREATE TABLE IF NOT EXISTS workshops (
   updated_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS thumbnail_url text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS banner_url text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS category_id uuid REFERENCES workshop_categories(id) ON DELETE SET NULL;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS workshop_type text DEFAULT 'online';
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS status text DEFAULT 'draft';
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS application_start_date date;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS application_end_date date;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS commencement_date date;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS end_date date;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS registration_deadline date;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS instructor_name text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS instructor_image_url text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS duration text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS price_type text DEFAULT 'free';
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS price numeric(10,2);
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS currency text DEFAULT 'INR';
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS seats_available integer;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS learning_outcomes text[];
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS curriculum jsonb;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS requirements text[];
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS resources jsonb;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS certificate_available boolean DEFAULT false;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS meeting_link text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS recording_link text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS tags text[];
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS seo_title text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS seo_description text;
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE workshops ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 ALTER TABLE workshops ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_active_workshops" ON workshops;
 CREATE POLICY "public_read_active_workshops" ON workshops FOR SELECT TO anon, authenticated USING (status = 'active');
@@ -232,7 +266,9 @@ CREATE POLICY "auth_update_workshops" ON workshops FOR UPDATE TO authenticated U
 DROP POLICY IF EXISTS "auth_delete_workshops" ON workshops;
 CREATE POLICY "auth_delete_workshops" ON workshops FOR DELETE TO authenticated USING (true);
 
+-- ============================================================
 -- Internships
+-- ============================================================
 CREATE TABLE IF NOT EXISTS internships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   thumbnail_url text,
@@ -272,6 +308,42 @@ CREATE TABLE IF NOT EXISTS internships (
   updated_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS thumbnail_url text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS company_logo_url text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS banner_url text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS category_id uuid REFERENCES internship_categories(id) ON DELETE SET NULL;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS domain text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES companies(id) ON DELETE SET NULL;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS partner_company_name text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS roles text[];
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS responsibilities text[];
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS skills_required text[];
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS eligibility text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS duration text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS work_mode text DEFAULT 'remote';
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS location text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS number_of_openings integer;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS application_start_date date;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS application_end_date date;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS internship_start_date date;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS internship_end_date date;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS stipend_type text DEFAULT 'unpaid';
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS stipend_amount numeric(10,2);
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS stipend_currency text DEFAULT 'INR';
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS certificate_provided boolean DEFAULT true;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS lor_provided boolean DEFAULT false;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS projects_included boolean DEFAULT false;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS mentor text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS assessment_criteria text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS status text DEFAULT 'draft';
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS seo_title text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS seo_description text;
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE internships ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 ALTER TABLE internships ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_open_internships" ON internships;
 CREATE POLICY "public_read_open_internships" ON internships FOR SELECT TO anon, authenticated USING (status = 'open');
@@ -282,7 +354,9 @@ CREATE POLICY "auth_update_internships" ON internships FOR UPDATE TO authenticat
 DROP POLICY IF EXISTS "auth_delete_internships" ON internships;
 CREATE POLICY "auth_delete_internships" ON internships FOR DELETE TO authenticated USING (true);
 
+-- ============================================================
 -- Workshop Applications
+-- ============================================================
 CREATE TABLE IF NOT EXISTS workshop_applications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workshop_id uuid NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
@@ -293,6 +367,13 @@ CREATE TABLE IF NOT EXISTS workshop_applications (
   updated_at timestamptz DEFAULT now(),
   UNIQUE(workshop_id, student_id)
 );
+
+ALTER TABLE workshop_applications ADD COLUMN IF NOT EXISTS workshop_id uuid REFERENCES workshops(id) ON DELETE CASCADE;
+ALTER TABLE workshop_applications ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE CASCADE;
+ALTER TABLE workshop_applications ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
+ALTER TABLE workshop_applications ADD COLUMN IF NOT EXISTS payment_status text DEFAULT 'not_required';
+ALTER TABLE workshop_applications ADD COLUMN IF NOT EXISTS applied_at timestamptz DEFAULT now();
+ALTER TABLE workshop_applications ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE workshop_applications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "students_read_own_workshop_apps" ON workshop_applications;
@@ -312,7 +393,9 @@ CREATE POLICY "students_delete_workshop_apps" ON workshop_applications FOR DELET
   EXISTS (SELECT 1 FROM students WHERE students.id = workshop_applications.student_id AND students.user_id = auth.uid())
 );
 
+-- ============================================================
 -- Internship Applications
+-- ============================================================
 CREATE TABLE IF NOT EXISTS internship_applications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   internship_id uuid NOT NULL REFERENCES internships(id) ON DELETE CASCADE,
@@ -323,6 +406,13 @@ CREATE TABLE IF NOT EXISTS internship_applications (
   updated_at timestamptz DEFAULT now(),
   UNIQUE(internship_id, student_id)
 );
+
+ALTER TABLE internship_applications ADD COLUMN IF NOT EXISTS internship_id uuid REFERENCES internships(id) ON DELETE CASCADE;
+ALTER TABLE internship_applications ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE CASCADE;
+ALTER TABLE internship_applications ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
+ALTER TABLE internship_applications ADD COLUMN IF NOT EXISTS cover_letter text;
+ALTER TABLE internship_applications ADD COLUMN IF NOT EXISTS applied_at timestamptz DEFAULT now();
+ALTER TABLE internship_applications ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE internship_applications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "students_read_own_intern_apps" ON internship_applications;
@@ -342,7 +432,9 @@ CREATE POLICY "students_delete_intern_apps" ON internship_applications FOR DELET
   EXISTS (SELECT 1 FROM students WHERE students.id = internship_applications.student_id AND students.user_id = auth.uid())
 );
 
+-- ============================================================
 -- Certificates
+-- ============================================================
 CREATE TABLE IF NOT EXISTS certificates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   certificate_number text UNIQUE NOT NULL,
@@ -361,6 +453,21 @@ CREATE TABLE IF NOT EXISTS certificates (
   created_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS certificate_number text;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE SET NULL;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS student_name text;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS program_name text;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS program_type text;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS workshop_id uuid REFERENCES workshops(id) ON DELETE SET NULL;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS internship_id uuid REFERENCES internships(id) ON DELETE SET NULL;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS issue_date date DEFAULT CURRENT_DATE;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS expiry_date date;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS status text DEFAULT 'active';
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS template_id uuid;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS qr_code_url text;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS pdf_url text;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_certificates" ON certificates;
 CREATE POLICY "public_read_certificates" ON certificates FOR SELECT TO anon, authenticated USING (true);
@@ -371,7 +478,9 @@ CREATE POLICY "auth_update_certificates" ON certificates FOR UPDATE TO authentic
 DROP POLICY IF EXISTS "auth_delete_certificates" ON certificates;
 CREATE POLICY "auth_delete_certificates" ON certificates FOR DELETE TO authenticated USING (true);
 
+-- ============================================================
 -- Payments
+-- ============================================================
 CREATE TABLE IF NOT EXISTS payments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES students(id) ON DELETE SET NULL,
@@ -387,6 +496,18 @@ CREATE TABLE IF NOT EXISTS payments (
   updated_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE SET NULL;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS workshop_application_id uuid REFERENCES workshop_applications(id) ON DELETE SET NULL;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount numeric(10,2);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS currency text DEFAULT 'INR';
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS razorpay_order_id text;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS razorpay_payment_id text;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS razorpay_signature text;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_url text;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "students_read_own_payments" ON payments;
 CREATE POLICY "students_read_own_payments" ON payments FOR SELECT TO authenticated USING (
@@ -401,7 +522,9 @@ CREATE POLICY "students_delete_payments" ON payments FOR DELETE TO authenticated
   EXISTS (SELECT 1 FROM students WHERE students.id = payments.student_id AND students.user_id = auth.uid())
 );
 
+-- ============================================================
 -- Attendance
+-- ============================================================
 CREATE TABLE IF NOT EXISTS attendance (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -412,6 +535,14 @@ CREATE TABLE IF NOT EXISTS attendance (
   notes text,
   created_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE CASCADE;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS workshop_id uuid REFERENCES workshops(id) ON DELETE CASCADE;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS internship_id uuid REFERENCES internships(id) ON DELETE CASCADE;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS date date DEFAULT CURRENT_DATE;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS status text DEFAULT 'present';
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS notes text;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "students_read_own_attendance" ON attendance;
@@ -425,7 +556,9 @@ CREATE POLICY "auth_update_attendance" ON attendance FOR UPDATE TO authenticated
 DROP POLICY IF EXISTS "auth_delete_attendance" ON attendance;
 CREATE POLICY "auth_delete_attendance" ON attendance FOR DELETE TO authenticated USING (true);
 
+-- ============================================================
 -- Assignments
+-- ============================================================
 CREATE TABLE IF NOT EXISTS assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -437,6 +570,14 @@ CREATE TABLE IF NOT EXISTS assignments (
   created_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS workshop_id uuid REFERENCES workshops(id) ON DELETE CASCADE;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS internship_id uuid REFERENCES internships(id) ON DELETE CASCADE;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_date timestamptz;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS max_marks integer DEFAULT 100;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+
 ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public_read_assignments" ON assignments;
 CREATE POLICY "public_read_assignments" ON assignments FOR SELECT TO authenticated USING (true);
@@ -447,7 +588,9 @@ CREATE POLICY "auth_update_assignments" ON assignments FOR UPDATE TO authenticat
 DROP POLICY IF EXISTS "auth_delete_assignments" ON assignments;
 CREATE POLICY "auth_delete_assignments" ON assignments FOR DELETE TO authenticated USING (true);
 
+-- ============================================================
 -- Notifications
+-- ============================================================
 CREATE TABLE IF NOT EXISTS notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -459,6 +602,14 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message text;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type text DEFAULT 'info';
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read boolean DEFAULT false;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link text;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "users_read_own_notifications" ON notifications;
 CREATE POLICY "users_read_own_notifications" ON notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
@@ -469,7 +620,9 @@ CREATE POLICY "users_update_own_notifications" ON notifications FOR UPDATE TO au
 DROP POLICY IF EXISTS "users_delete_own_notifications" ON notifications;
 CREATE POLICY "users_delete_own_notifications" ON notifications FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+-- ============================================================
 -- Company Partnership Requests
+-- ============================================================
 CREATE TABLE IF NOT EXISTS company_partnership_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name text NOT NULL,
@@ -484,6 +637,17 @@ CREATE TABLE IF NOT EXISTS company_partnership_requests (
   created_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS company_name text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS contact_name text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS contact_email text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS contact_phone text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS website text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS industry text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS message text;
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS request_type text DEFAULT 'partnership';
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
+ALTER TABLE company_partnership_requests ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+
 ALTER TABLE company_partnership_requests ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_insert_partnership_requests" ON company_partnership_requests;
 CREATE POLICY "anon_insert_partnership_requests" ON company_partnership_requests FOR INSERT TO anon, authenticated WITH CHECK (true);
@@ -494,7 +658,9 @@ CREATE POLICY "auth_update_partnership_requests" ON company_partnership_requests
 DROP POLICY IF EXISTS "auth_delete_partnership_requests" ON company_partnership_requests;
 CREATE POLICY "auth_delete_partnership_requests" ON company_partnership_requests FOR DELETE TO authenticated USING (true);
 
+-- ============================================================
 -- Indexes for performance
+-- ============================================================
 CREATE INDEX IF NOT EXISTS idx_workshops_status ON workshops(status);
 CREATE INDEX IF NOT EXISTS idx_workshops_category ON workshops(category_id);
 CREATE INDEX IF NOT EXISTS idx_internships_status ON internships(status);
@@ -506,12 +672,13 @@ CREATE INDEX IF NOT EXISTS idx_students_user ON students(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 
 -- Ensure slug uniqueness across entities by creating unique indexes if slugs exist.
--- Creating UNIQUE INDEX via IF NOT EXISTS is safer than inline UNIQUE constraints when altering existing tables.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_slug ON companies(slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workshops_slug ON workshops(slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_internships_slug ON internships(slug);
 
+-- ============================================================
 -- Seed default categories
+-- ============================================================
 INSERT INTO workshop_categories (name, slug, color) VALUES
   ('Technology', 'technology', '#C9A84C'),
   ('Business', 'business', '#2D6A4F'),
