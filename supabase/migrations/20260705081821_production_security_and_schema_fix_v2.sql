@@ -137,28 +137,38 @@ ALTER TABLE assignment_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Workshop Categories
 DROP POLICY IF EXISTS "auth_insert_workshop_categories" ON workshop_categories;
+DROP POLICY IF EXISTS "admin_insert_workshop_categories" ON workshop_categories;
 CREATE POLICY "admin_insert_workshop_categories" ON workshop_categories FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_workshop_categories" ON workshop_categories;
+DROP POLICY IF EXISTS "admin_update_workshop_categories" ON workshop_categories;
 CREATE POLICY "admin_update_workshop_categories" ON workshop_categories FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_workshop_categories" ON workshop_categories;
+DROP POLICY IF EXISTS "admin_delete_workshop_categories" ON workshop_categories;
 CREATE POLICY "admin_delete_workshop_categories" ON workshop_categories FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Internship Categories
 DROP POLICY IF EXISTS "auth_insert_internship_categories" ON internship_categories;
+DROP POLICY IF EXISTS "admin_insert_internship_categories" ON internship_categories;
 CREATE POLICY "admin_insert_internship_categories" ON internship_categories FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_internship_categories" ON internship_categories;
+DROP POLICY IF EXISTS "admin_update_internship_categories" ON internship_categories;
 CREATE POLICY "admin_update_internship_categories" ON internship_categories FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_internship_categories" ON internship_categories;
+DROP POLICY IF EXISTS "admin_delete_internship_categories" ON internship_categories;
 CREATE POLICY "admin_delete_internship_categories" ON internship_categories FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Companies
 DROP POLICY IF EXISTS "auth_insert_companies" ON companies;
+DROP POLICY IF EXISTS "admin_insert_companies" ON companies;
 CREATE POLICY "admin_insert_companies" ON companies FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_companies" ON companies;
+DROP POLICY IF EXISTS "admin_update_companies" ON companies;
 CREATE POLICY "admin_update_companies" ON companies FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_companies" ON companies;
+DROP POLICY IF EXISTS "admin_delete_companies" ON companies;
 CREATE POLICY "admin_delete_companies" ON companies FOR DELETE TO authenticated USING (public.has_role('admin'));
 DROP POLICY IF EXISTS "public_read_approved_companies" ON companies;
+DROP POLICY IF EXISTS "read_companies" ON companies;
 CREATE POLICY "read_companies" ON companies FOR SELECT TO anon, authenticated USING (
   status = 'approved' OR public.has_role('admin') OR
   EXISTS (SELECT 1 FROM company_users WHERE company_users.user_id = auth.uid() AND company_users.company_id = companies.id)
@@ -166,71 +176,94 @@ CREATE POLICY "read_companies" ON companies FOR SELECT TO anon, authenticated US
 
 -- Workshops
 DROP POLICY IF EXISTS "auth_insert_workshops" ON workshops;
+DROP POLICY IF EXISTS "admin_insert_workshops" ON workshops;
 CREATE POLICY "admin_insert_workshops" ON workshops FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_workshops" ON workshops;
+DROP POLICY IF EXISTS "admin_update_workshops" ON workshops;
 CREATE POLICY "admin_update_workshops" ON workshops FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_workshops" ON workshops;
+DROP POLICY IF EXISTS "admin_delete_workshops" ON workshops;
 CREATE POLICY "admin_delete_workshops" ON workshops FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Internships
 DROP POLICY IF EXISTS "auth_insert_internships" ON internships;
+DROP POLICY IF EXISTS "manage_insert_internships" ON internships;
 CREATE POLICY "manage_insert_internships" ON internships FOR INSERT TO authenticated WITH CHECK (public.has_role('admin') OR public.has_role('company'));
 DROP POLICY IF EXISTS "auth_update_internships" ON internships;
+DROP POLICY IF EXISTS "manage_update_internships" ON internships;
 CREATE POLICY "manage_update_internships" ON internships FOR UPDATE TO authenticated USING (
   public.has_role('admin') OR
   EXISTS (SELECT 1 FROM company_users WHERE company_users.user_id = auth.uid() AND company_users.company_id = internships.company_id)
 ) WITH CHECK (public.has_role('admin') OR public.has_role('company'));
 DROP POLICY IF EXISTS "auth_delete_internships" ON internships;
+DROP POLICY IF EXISTS "admin_delete_internships" ON internships;
 CREATE POLICY "admin_delete_internships" ON internships FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Certificates
 DROP POLICY IF EXISTS "auth_insert_certificates" ON certificates;
+DROP POLICY IF EXISTS "admin_insert_certificates" ON certificates;
 CREATE POLICY "admin_insert_certificates" ON certificates FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_certificates" ON certificates;
+DROP POLICY IF EXISTS "admin_update_certificates" ON certificates;
 CREATE POLICY "admin_update_certificates" ON certificates FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_certificates" ON certificates;
+DROP POLICY IF EXISTS "admin_delete_certificates" ON certificates;
 CREATE POLICY "admin_delete_certificates" ON certificates FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Payments
 DROP POLICY IF EXISTS "auth_insert_payments" ON payments;
+DROP POLICY IF EXISTS "students_insert_payments" ON payments;
 CREATE POLICY "students_insert_payments" ON payments FOR INSERT TO authenticated WITH CHECK (
   EXISTS (SELECT 1 FROM students WHERE students.id = payments.student_id AND students.user_id = auth.uid())
 );
 DROP POLICY IF EXISTS "auth_update_payments" ON payments;
+DROP POLICY IF EXISTS "admin_update_payments" ON payments;
 CREATE POLICY "admin_update_payments" ON payments FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_payments" ON payments;
+DROP POLICY IF EXISTS "admin_delete_payments" ON payments;
 CREATE POLICY "admin_delete_payments" ON payments FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Attendance
 DROP POLICY IF EXISTS "auth_insert_attendance" ON attendance;
+DROP POLICY IF EXISTS "admin_insert_attendance" ON attendance;
 CREATE POLICY "admin_insert_attendance" ON attendance FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_attendance" ON attendance;
+DROP POLICY IF EXISTS "admin_update_attendance" ON attendance;
 CREATE POLICY "admin_update_attendance" ON attendance FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_attendance" ON attendance;
+DROP POLICY IF EXISTS "admin_delete_attendance" ON attendance;
 CREATE POLICY "admin_delete_attendance" ON attendance FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Assignments
 DROP POLICY IF EXISTS "auth_insert_assignments" ON assignments;
+DROP POLICY IF EXISTS "admin_insert_assignments" ON assignments;
 CREATE POLICY "admin_insert_assignments" ON assignments FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_assignments" ON assignments;
+DROP POLICY IF EXISTS "admin_update_assignments" ON assignments;
 CREATE POLICY "admin_update_assignments" ON assignments FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_assignments" ON assignments;
+DROP POLICY IF EXISTS "admin_delete_assignments" ON assignments;
 CREATE POLICY "admin_delete_assignments" ON assignments FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Notifications
 DROP POLICY IF EXISTS "auth_insert_notifications" ON notifications;
+DROP POLICY IF EXISTS "admin_insert_notifications" ON notifications;
 CREATE POLICY "admin_insert_notifications" ON notifications FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 
 -- Partnership requests
 DROP POLICY IF EXISTS "auth_read_partnership_requests" ON company_partnership_requests;
+DROP POLICY IF EXISTS "admin_read_partnership_requests" ON company_partnership_requests;
 CREATE POLICY "admin_read_partnership_requests" ON company_partnership_requests FOR SELECT TO authenticated USING (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_update_partnership_requests" ON company_partnership_requests;
+DROP POLICY IF EXISTS "admin_update_partnership_requests" ON company_partnership_requests;
 CREATE POLICY "admin_update_partnership_requests" ON company_partnership_requests FOR UPDATE TO authenticated USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_partnership_requests" ON company_partnership_requests;
+DROP POLICY IF EXISTS "admin_delete_partnership_requests" ON company_partnership_requests;
 CREATE POLICY "admin_delete_partnership_requests" ON company_partnership_requests FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Workshop applications
 DROP POLICY IF EXISTS "auth_update_workshop_apps" ON workshop_applications;
+DROP POLICY IF EXISTS "manage_update_workshop_apps" ON workshop_applications;
 CREATE POLICY "manage_update_workshop_apps" ON workshop_applications FOR UPDATE TO authenticated USING (
   public.has_role('admin') OR
   EXISTS (SELECT 1 FROM students WHERE students.id = workshop_applications.student_id AND students.user_id = auth.uid())
@@ -239,10 +272,12 @@ CREATE POLICY "manage_update_workshop_apps" ON workshop_applications FOR UPDATE 
   EXISTS (SELECT 1 FROM students WHERE students.id = workshop_applications.student_id AND students.user_id = auth.uid())
 );
 DROP POLICY IF EXISTS "auth_delete_workshop_apps" ON workshop_applications;
+DROP POLICY IF EXISTS "admin_delete_workshop_apps" ON workshop_applications;
 CREATE POLICY "admin_delete_workshop_apps" ON workshop_applications FOR DELETE TO authenticated USING (public.has_role('admin'));
 
 -- Internship applications
 DROP POLICY IF EXISTS "auth_update_intern_apps" ON internship_applications;
+DROP POLICY IF EXISTS "manage_update_intern_apps" ON internship_applications;
 CREATE POLICY "manage_update_intern_apps" ON internship_applications FOR UPDATE TO authenticated USING (
   public.has_role('admin') OR
   EXISTS (SELECT 1 FROM students WHERE students.id = internship_applications.student_id AND students.user_id = auth.uid())
@@ -251,8 +286,10 @@ CREATE POLICY "manage_update_intern_apps" ON internship_applications FOR UPDATE 
   EXISTS (SELECT 1 FROM students WHERE students.id = internship_applications.student_id AND students.user_id = auth.uid())
 );
 DROP POLICY IF EXISTS "auth_delete_intern_apps" ON internship_applications;
+DROP POLICY IF EXISTS "admin_delete_intern_apps" ON internship_applications;
 CREATE POLICY "admin_delete_intern_apps" ON internship_applications FOR DELETE TO authenticated USING (public.has_role('admin'));
 DROP POLICY IF EXISTS "students_read_own_intern_apps" ON internship_applications;
+DROP POLICY IF EXISTS "read_intern_apps" ON internship_applications;
 CREATE POLICY "read_intern_apps" ON internship_applications FOR SELECT TO authenticated USING (
   EXISTS (SELECT 1 FROM students WHERE students.id = internship_applications.student_id AND students.user_id = auth.uid()) OR
   public.has_role('admin') OR
@@ -266,12 +303,15 @@ CREATE POLICY "read_intern_apps" ON internship_applications FOR SELECT TO authen
 
 -- Students
 DROP POLICY IF EXISTS "auth_update_students" ON students;
+DROP POLICY IF EXISTS "manage_update_students" ON students;
 CREATE POLICY "manage_update_students" ON students FOR UPDATE TO authenticated USING (
   auth.uid() = user_id OR public.has_role('admin')
 ) WITH CHECK (auth.uid() = user_id OR public.has_role('admin'));
 DROP POLICY IF EXISTS "auth_delete_students" ON students;
+DROP POLICY IF EXISTS "admin_delete_students" ON students;
 CREATE POLICY "admin_delete_students" ON students FOR DELETE TO authenticated USING (public.has_role('admin'));
 DROP POLICY IF EXISTS "students_read_own" ON students;
+DROP POLICY IF EXISTS "read_students" ON students;
 CREATE POLICY "read_students" ON students FOR SELECT TO authenticated USING (
   auth.uid() = user_id OR public.has_role('admin') OR
   EXISTS (SELECT 1 FROM company_users WHERE company_users.user_id = auth.uid())
@@ -287,6 +327,7 @@ CREATE POLICY "read_company_users" ON company_users FOR SELECT TO authenticated 
 DROP POLICY IF EXISTS "admin_insert_company_users" ON company_users;
 CREATE POLICY "admin_insert_company_users" ON company_users FOR INSERT TO authenticated WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "admin_update_company_users" ON company_users;
+DROP POLICY IF EXISTS "manage_update_company_users" ON company_users;
 CREATE POLICY "manage_update_company_users" ON company_users FOR UPDATE TO authenticated USING (auth.uid() = user_id OR public.has_role('admin')) WITH CHECK (auth.uid() = user_id OR public.has_role('admin'));
 DROP POLICY IF EXISTS "admin_delete_company_users" ON company_users;
 CREATE POLICY "admin_delete_company_users" ON company_users FOR DELETE TO authenticated USING (public.has_role('admin'));
@@ -303,6 +344,7 @@ CREATE POLICY "admin_delete_contact" ON contact_messages FOR DELETE TO authentic
 
 -- Support Tickets
 DROP POLICY IF EXISTS "student_read_tickets" ON support_tickets;
+DROP POLICY IF EXISTS "read_tickets" ON support_tickets;
 CREATE POLICY "read_tickets" ON support_tickets FOR SELECT TO authenticated USING (
   EXISTS (SELECT 1 FROM students WHERE students.id = support_tickets.student_id AND students.user_id = auth.uid()) OR public.has_role('admin')
 );
@@ -311,6 +353,7 @@ CREATE POLICY "student_insert_tickets" ON support_tickets FOR INSERT TO authenti
   EXISTS (SELECT 1 FROM students WHERE students.id = support_tickets.student_id AND students.user_id = auth.uid())
 );
 DROP POLICY IF EXISTS "admin_update_tickets" ON support_tickets;
+DROP POLICY IF EXISTS "manage_update_tickets" ON support_tickets;
 CREATE POLICY "manage_update_tickets" ON support_tickets FOR UPDATE TO authenticated USING (
   EXISTS (SELECT 1 FROM students WHERE students.id = support_tickets.student_id AND students.user_id = auth.uid()) OR public.has_role('admin')
 ) WITH CHECK (public.has_role('admin'));
