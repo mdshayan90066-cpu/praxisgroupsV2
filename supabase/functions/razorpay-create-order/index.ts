@@ -72,7 +72,7 @@ serve(async (req) => {
       body: JSON.stringify({
         amount: amountInPaise,
         currency: "INR",
-        receipt: `application_${applicationId}`,
+        receipt: `app_${applicationId.slice(0, 8)}_${Date.now().toString(36)}`,
         notes: { workshopId, studentId, applicationId },
       }),
     });
