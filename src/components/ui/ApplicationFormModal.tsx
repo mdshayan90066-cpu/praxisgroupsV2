@@ -23,6 +23,7 @@ type ApplicantStatus = 'student' | 'working' | '';
 const ACCEPTED_RESUME = '.pdf,.png,.jpg,.jpeg';
 const ACCEPTED_COVER  = '.pdf,.png,.jpg,.jpeg';
 const MAX_FILE_SIZE_MB = 5;
+const CONVENIENCE_FEE = 3;
 
 export default function ApplicationFormModal({
   open, onClose, type, programId, programName, price, currency = 'INR', priceType = 'free', onSuccess,
@@ -73,6 +74,8 @@ export default function ApplicationFormModal({
   }, [open]);
 
   if (!open) return null;
+
+  const displayPrice = price ? price + CONVENIENCE_FEE : price;
 
   /* ── helpers ── */
   const validateFile = (file: File) => {
@@ -528,17 +531,17 @@ export default function ApplicationFormModal({
               </div>
 
               {/* Price info for paid workshops */}
-              {type === 'workshop' && priceType === 'paid' && price && price > 0 && (
+              {type === 'workshop' && priceType === 'paid' && displayPrice && displayPrice > 0 && (
                 <div className="flex items-center justify-between p-3 bg-gold-500/10 border border-gold-500/20 rounded-xl">
                   <span className="text-gray-300 text-sm">Payment required</span>
-                  <span className="text-gold-500 font-bold text-lg">₹{price.toLocaleString()}</span>
+                  <span className="text-gold-500 font-bold text-lg">₹{displayPrice.toLocaleString()}</span>
                 </div>
               )}
 
               <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 font-semibold">
                 {loading ? <Loader2 size={18} className="animate-spin mx-auto" /> :
-                  type === 'workshop' && priceType === 'paid' && price && price > 0
-                    ? `Pay ₹${price.toLocaleString()} & Register`
+                  type === 'workshop' && priceType === 'paid' && displayPrice && displayPrice > 0
+                    ? `Pay ₹${displayPrice.toLocaleString()} & Register`
                     : 'Submit Application'}
               </button>
 
