@@ -270,8 +270,8 @@ export default function Checkout() {
                     <span className="text-white font-medium">₹{amount}</span>
                   </div>
                   <div className="flex justify-between text-sm text-gray-400">
-                    <span>GST (18%)</span>
-                    <span>₹{gst}</span>
+                    <span>Convenience Fee</span>
+                    <span>₹{convenienceFee}</span>
                   </div>
                   <div className="flex justify-between pt-4 border-t border-dark-300 font-bold text-lg text-white">
                     <span>Total Amount</span>
