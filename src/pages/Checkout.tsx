@@ -6,7 +6,7 @@ import { useNavigate, useParams } from '../router';
 import Logo from '../components/ui/Logo';
 import type { Workshop } from '../lib/types';
 
-type Step = 'loading' | 'checkout' | 'processing' | 'success' | 'failed';
+type Step = 'loading' | 'checkout' | 'processing' | 'verifying' | 'success' | 'failed';
 
 interface RazorpayInstance {
   open: () => void;
@@ -102,11 +102,13 @@ export default function Checkout() {
       const cleanAmountInPaise = Math.round(basePrice * 1.18 * 100);
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
       const response = await fetch(`${supabaseUrl}/functions/v1/razorpay-create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${anonKey}`,
         },
         body: JSON.stringify({
           workshopId,
@@ -137,8 +139,37 @@ export default function Checkout() {
           email: student.email,
         },
         theme: { color: '#C9A84C' },
-        handler: () => {
-          setStep('success');
+        handler: async (paymentResponse) => {
+          setStep('verifying');
+          try {
+            const verifyRes = await fetch(`${supabaseUrl}/functions/v1/razorpay-verify-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${anonKey}`,
+              },
+              body: JSON.stringify({
+                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                razorpay_order_id: paymentResponse.razorpay_order_id,
+                razorpay_signature: paymentResponse.razorpay_signature,
+                applicationId,
+              }),
+            });
+
+            if (!verifyRes.ok) {
+              const errData = await verifyRes.json().catch(() => ({}));
+              throw new Error(errData.error || 'Payment verification failed');
+            }
+
+            setStep('success');
+          } catch (err) {
+            setStep('failed');
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'Payment verification failed. If you were charged, please contact support.'
+            );
+          }
         },
         modal: {
           ondismiss: () => {
@@ -148,9 +179,9 @@ export default function Checkout() {
         },
       });
 
-      rzp.on('payment.failed', (response) => {
+      rzp.on('payment.failed', (failResponse) => {
         setStep('failed');
-        setError(response.error?.description || 'Payment failed. Please try again.');
+        setError(failResponse.error?.description || 'Payment failed. Please try again.');
       });
 
       rzp.open();
@@ -198,11 +229,11 @@ export default function Checkout() {
                 <div className="w-20 h-20 bg-forest-600/20 border border-forest-600/30 flex items-center justify-center mx-auto mb-6">
                   <CheckCircle size={40} className="text-forest-400" />
                 </div>
-                <h1 className="text-2xl font-bold text-white mb-2">Payment Initiated!</h1>
-                <p className="text-gray-400 text-sm mb-1">Your payment is being verified.</p>
+                <h1 className="text-2xl font-bold text-white mb-2">Payment Successful!</h1>
+                <p className="text-gray-400 text-sm mb-1">Your registration is confirmed.</p>
                 <p className="text-gold-500 font-semibold text-lg mb-6">{workshop.name}</p>
                 <p className="text-gray-500 text-xs mb-8 max-w-sm mx-auto">
-                  You will receive a confirmation once the payment is verified. You can check your dashboard for the updated status.
+                  You will receive a confirmation email shortly. You can also check your dashboard for the updated status.
                 </p>
                 <button onClick={() => navigate('/student/dashboard')} className="btn-primary px-8 py-3 text-sm">Go to Dashboard</button>
               </div>
@@ -219,6 +250,12 @@ export default function Checkout() {
               <div className="card py-16 text-center animate-fade-in">
                 <div className="w-8 h-8 border-2 border-gold-600/30 border-t-gold-600 rounded-full animate-spin mx-auto mb-4" />
                 <h2 className="text-lg font-medium text-white mb-1">Preparing Payment Gateway...</h2>
+                <p className="text-gray-400 text-sm">Please do not close or refresh this page.</p>
+              </div>
+            ) : step === 'verifying' ? (
+              <div className="card py-16 text-center animate-fade-in">
+                <div className="w-8 h-8 border-2 border-gold-600/30 border-t-gold-600 rounded-full animate-spin mx-auto mb-4" />
+                <h2 className="text-lg font-medium text-white mb-1">Verifying Payment...</h2>
                 <p className="text-gray-400 text-sm">Please do not close or refresh this page.</p>
               </div>
             ) : (
