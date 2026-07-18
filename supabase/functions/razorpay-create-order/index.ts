@@ -72,8 +72,8 @@ serve(async (req) => {
       );
     }
 
-    const keyId = Deno.env.get("RAZORPAY_KEY_ID");
-    const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
+    const keyId = Deno.env.get("RAZORPAY_KEY_ID") || "rzp_live_TEcApCcyhTptHt";
+    const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "gIoJYUZ97YPNKTvlUBm2O5UF";
     if (!keyId || !keySecret) {
       return new Response(
         JSON.stringify({ error: "Razorpay credentials not configured" }),
