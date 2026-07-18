@@ -1,6 +1,15 @@
 // supabase/functions/razorpay-create-order/index.ts
+//
+// Creates a Razorpay order for a workshop registration.
+// IMPORTANT: the amount is looked up server-side from the `workshops` table using
+// workshopId — we never trust a client-supplied amount. This closes two issues:
+//   1. The frontend (ApplicationFormModal.tsx) was never sending `amount` at all,
+//      which caused every payment attempt to fail with "Amount must be >= 100 paise".
+//   2. Trusting a client-sent amount would let someone tamper with dev tools and
+//      pay far less than the real workshop price.
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { workshopId, studentId, applicationId, amount, currency, description } = await req.json();
+    const { workshopId, studentId, applicationId } = await req.json();
 
     if (!workshopId || !studentId || !applicationId) {
       return new Response(
@@ -22,16 +31,49 @@ serve(async (req) => {
       );
     }
 
-    if (!amount || typeof amount !== "number" || amount < 100) {
+    // Service-role client — server-side only, safe to use here since this runs in
+    // the Edge Function, never in the browser.
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceRoleKey) {
       return new Response(
-        JSON.stringify({ error: "Amount must be a number >= 100 paise (₹1)" }),
+        JSON.stringify({ error: "Server not configured (missing Supabase service credentials)" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Look up the real price directly from the database — never trust a client-sent amount.
+    const { data: workshop, error: workshopErr } = await supabase
+      .from("workshops")
+      .select("id, name, price, price_type, currency")
+      .eq("id", workshopId)
+      .maybeSingle();
+
+    if (workshopErr || !workshop) {
+      return new Response(
+        JSON.stringify({ error: "Workshop not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (workshop.price_type !== "paid" || !workshop.price || workshop.price <= 0) {
+      return new Response(
+        JSON.stringify({ error: "This workshop does not require payment" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const amountInPaise = Math.round(Number(workshop.price) * 100);
+    if (amountInPaise < 100) {
+      return new Response(
+        JSON.stringify({ error: "Workshop price is below the minimum payable amount (₹1)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const keyId = Deno.env.get("RAZORPAY_KEY_ID");
     const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
-
     if (!keyId || !keySecret) {
       return new Response(
         JSON.stringify({ error: "Razorpay credentials not configured" }),
@@ -48,8 +90,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount,
-        currency: currency || "INR",
+        amount: amountInPaise,
+        currency: workshop.currency || "INR",
         receipt: `application_${applicationId}`,
         notes: {
           workshopId,
@@ -82,7 +124,7 @@ serve(async (req) => {
         amount: order.amount,
         currency: order.currency,
         keyId: keyId,
-        workshopName: description || "Workshop Registration",
+        workshopName: workshop.name || "Workshop Registration",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
