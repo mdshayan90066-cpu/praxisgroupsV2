@@ -202,8 +202,8 @@ export default function Checkout() {
   if (!workshop) return null;
 
   const amount = workshop.price ?? 0;
-  const gst = Math.round(amount * 0.18);
-  const total = amount + gst;
+  const convenienceFee = 3;
+  const total = amount + convenienceFee;
 
   return (
     <div className="min-h-screen bg-dark-900">
